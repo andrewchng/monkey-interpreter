@@ -45,7 +45,7 @@ func (p *Program) TokenLiteral() string {
 type LetStatement struct {
 	Token token.Token
 	Name  *Identifier
-	Value string
+	Value Expression
 }
 
 func (ls *LetStatement) statementNode() {}
@@ -60,8 +60,8 @@ func (ls *LetStatement) String() string {
 	out.WriteString(ls.Name.String())
 	out.WriteString(" = ")
 
-	if ls.Value != "" {
-		out.WriteString(ls.Value)
+	if ls.Value != nil {
+		out.WriteString(ls.Value.String())
 	}
 
 	out.WriteString(";")
