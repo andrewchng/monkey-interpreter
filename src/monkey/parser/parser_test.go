@@ -7,6 +7,63 @@ import (
 	"testing"
 )
 
+func TestParsingInfixExpression(t *testing.T) {
+	infixTest := []struct {
+		input      string
+		leftValue  int64
+		operator   string
+		rightValue int64
+	}{
+		{"5 + 5;", 5, "+", 5},
+		{"5 - 5;", 5, "-", 5},
+		{"5 * 5;", 5, "*", 5},
+		{"5 / 5;", 5, "/", 5},
+		{"5 > 5;", 5, ">", 5},
+		{"5 < 5;", 5, "<", 5},
+		{"5 == 5;", 5, "==", 5},
+		{"5 != 5;", 5, "!=", 5},
+	}
+
+	for _, tt := range infixTest {
+		l := lexer.New(tt.input)
+		p := New(l)
+
+		program := p.ParseProgram()
+		checkParseErrors(t, p)
+
+		if len(program.Statements) != 1 {
+			t.Fatalf("Progrma statement is not 1, got=%d", len(program.Statements))
+		}
+
+		//cast to expression statement
+		stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+
+		if !ok {
+			t.Fatalf("Statment is not ast.ExpressionStatement, got=%T", program.Statements[0])
+		}
+
+		exp, ok := stmt.Expression.(*ast.InfixExpression)
+
+		if !ok {
+			t.Fatalf("Expression is not ast.InfixExpresion, got=%T", stmt.Expression)
+		}
+
+		if !testIntergerLiteral(t, exp.Left, tt.leftValue) {
+			return
+		}
+
+		if exp.Operator != tt.operator {
+			t.Fatalf("Expression Operator is not %s, got=%s", tt.operator, exp.Operator)
+		}
+
+		if !testIntergerLiteral(t, exp.Right, tt.rightValue) {
+			return
+		}
+
+	}
+
+}
+
 func TestParsingPrefixExpression(t *testing.T) {
 	prefixTest := []struct {
 		input        string
