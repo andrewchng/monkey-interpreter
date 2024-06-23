@@ -7,6 +7,77 @@ import (
 	"testing"
 )
 
+func TestFunctionParametersParsing(t *testing.T) {
+	test := []struct {
+		input          string
+		expectedParams []string
+	}{
+		{input: "fn() {};", expectedParams: []string{}},
+		{input: "fn(x) {};", expectedParams: []string{"x"}},
+		{input: "fn(x, y, z) {};", expectedParams: []string{"x", "y", "z"}},
+	}
+
+	for _, tt := range test {
+		l := lexer.New(tt.input)
+		p := New(l)
+		program := p.ParseProgram()
+		checkParseErrors(t, p)
+
+		stmt := program.Statements[0].(*ast.ExpressionStatement)
+		function := stmt.Expression.(*ast.FunctionLiteral)
+
+		if len(function.Parameters) != len(tt.expectedParams) {
+			t.Errorf("Length of parmas wrong, want=%d, got=%d", len(tt.expectedParams), len(function.Parameters))
+		}
+
+		for i, ident := range tt.expectedParams {
+			testLiteralExpression(t, function.Parameters[i], ident)
+		}
+
+	}
+}
+
+func TestFunctionLiteral(t *testing.T) {
+	input := `fn(x ,y) { x + y }`
+
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParseErrors(t, p)
+
+	if len(program.Statements) != 1 {
+		t.Fatalf("Program does not ahve  contain %d statements, got=%d", 1, len(program.Statements))
+	}
+
+	stmt, ok := program.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("statement is not ast.ExpressionStatement, got=%T", program.Statements[0])
+	}
+
+	fl, ok := stmt.Expression.(*ast.FunctionLiteral)
+	if !ok {
+		t.Fatalf("Expression is not a FunctionLiteral, got=%T", stmt.Expression)
+	}
+
+	if len(fl.Parameters) != 2 {
+		t.Fatalf("Number of Parameters is not %d, got=%d", 2, len(fl.Parameters))
+	}
+
+	testLiteralExpression(t, fl.Parameters[0], "x")
+	testLiteralExpression(t, fl.Parameters[1], "y")
+
+	if len(fl.Body.Statements) != 1 {
+		t.Fatalf("Function.Body.Statements has not 1 statements, got=%d", fl.Body.Statements)
+	}
+
+	bodyStmt, ok := fl.Body.Statements[0].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("Body Statement is not ast.ExpressionStatment, got=%T", fl.Body.Statements[0])
+	}
+
+	testInfixExpression(t, bodyStmt.Expression, "x", "+", "y")
+}
+
 func TestIfElseExpression(t *testing.T) {
 	input := "if (x < y) { x } else { y }"
 	l := lexer.New(input)
