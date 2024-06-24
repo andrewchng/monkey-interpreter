@@ -51,8 +51,38 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(token.NOT_EQ, p.parseInfixExpresion)
 	p.registerInfix(token.LT, p.parseInfixExpresion)
 	p.registerInfix(token.GT, p.parseInfixExpresion)
+	p.registerInfix(token.LPAREN, p.parseCallExpresion)
 
 	return p
+}
+
+func (p *Parser) parseCallExpresion(function ast.Expression) ast.Expression {
+	exp := &ast.CallExpression{Token: p.curToken, Function: function}
+	exp.Arguments = p.parseCallArguments()
+	return exp
+}
+
+func (p *Parser) parseCallArguments() []ast.Expression {
+	args := []ast.Expression{}
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken()
+		return args
+	}
+
+	p.nextToken()
+	args = append(args, p.parseExpression(LOWEST))
+
+	for p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		p.nextToken()
+		args = append(args, p.parseExpression(LOWEST))
+	}
+
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	return args
 }
 
 func (p *Parser) parseFunctionLiteral() ast.Expression {
@@ -208,6 +238,7 @@ func (p *Parser) parseIntergerLiteral() ast.Expression {
 }
 
 func (p *Parser) parseIdentifier() ast.Expression {
+	defer untrace(trace("parseIdentifier"))
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
@@ -236,8 +267,8 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	stmt := &ast.ReturnStatement{Token: p.curToken}
 
 	p.nextToken()
+	stmt.ReturnValue = p.parseExpression(LOWEST)
 
-	// TOOO (ignores expression end loop when hit semicolon, denotes end of return statement)
 	for p.curToken.Type != token.SEMICOLON {
 		p.nextToken()
 	}
@@ -287,8 +318,11 @@ func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 
 func (p *Parser) parseExpression(precedence int) ast.Expression {
 	defer untrace(trace("parseExpression"))
+	defer untrace(trace(p.curToken.Literal))
+
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
+
 		p.noPrefixParseFnError(p.curToken.Type)
 		return nil
 	}
@@ -322,9 +356,9 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 		return nil
 	}
 
-	// let x = 5222;
-	// 5 -> 2 -> 2 -> 2;
-	// TOOO (ignores expression end loop when hit semicolon, denotes end of let statement)
+	p.nextToken()
+	stmt.Value = p.parseExpression(LOWEST)
+
 	for !p.curTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
@@ -374,6 +408,7 @@ var precedence = map[token.TokenType]int{
 	token.MINUS:    SUM,
 	token.SLASH:    PRODUCT,
 	token.ASTERISK: PRODUCT,
+	token.LPAREN:   CALL,
 }
 
 func (p *Parser) peekPrecedence() int {
